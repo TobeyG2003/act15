@@ -3,7 +3,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -32,6 +36,9 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
+  final CollectionReference itemsCollection =
+      FirebaseFirestore.instance.collection('items');
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,14 +46,52 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            
-          ],
-        ),
-      ),
+      body: StreamBuilder<List<Item>>(
+        stream: FirestoreService().getItemsStream(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, color: Colors.red, size: 60),
+                  const SizedBox(height: 16),
+                  Text('Error: ${snapshot.error}'),
+                ],
+              ),
+            );
+          }
+          
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          
+          if (snapshot.hasData) {
+            final items = snapshot.data!;
+            if (items.isEmpty) {
+              return const Center(
+                child: Text('No items found in Firestore'),
+              );
+            }
+            return ListView.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return ListTile(
+                  title: Text(item.name),
+                  subtitle: Text('Quantity: ${item.quantity}, Price: \$${item.price}, Category: ${item.category}, Created At: ${item.createdAt}'),
+                );
+              },
+            );
+          }
+          
+          return const Center(
+            child: Text('No data available'),
+          );
+        }
+      )
     );
   }
 }
@@ -102,12 +147,16 @@ class FirestoreService {
     await docRef.update({'id': item.id});
   }
 
-  Stream<Item?> getItemsStream(String id) {
-    return itemsCollection.doc(id).snapshots().map((docSnap) {
-      if (docSnap.exists) {
-        return Item.fromMap(docSnap.data() as Map<String, dynamic>);
-      }
-      return null;
+  Stream<List<Item>> getItemsStream() {
+    return itemsCollection.snapshots().map((querySnap) {
+      return querySnap.docs.map((doc) {
+        try {
+          return Item.fromMap(doc.data() as Map<String, dynamic>);
+        } catch (e) {
+          print('Error parsing document: $e');
+          rethrow;
+        }
+      }).toList();
     });
   }
 
