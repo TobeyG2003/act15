@@ -20,15 +20,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: LoginScreen(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({super.key, required this.title, required this.user});
 
   final String title;
+  final User user;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -69,6 +70,14 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: [
+          Text('Welcome, ${widget.user.username} (${widget.user.status})'),
+          ElevatedButton(onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+          }, child: const Text('Logout')),
+          const SizedBox(height: 16),
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
@@ -162,17 +171,19 @@ class _MyHomePageState extends State<MyHomePage> {
                 return ListTile(
                   title: Text(item.name),
                   subtitle: Text('Quantity: ${item.quantity}, Price: \$${item.price}, Category: ${item.category}, Created At: ${item.createdAt}'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => AddEditItemScreen(item: item),
-                        ),
-                      );
-                      refreshCategories();
-                    },
-                  ),
+                  trailing: widget.user.status == 'admin' 
+                    ? IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => AddEditItemScreen(item: item),
+                            ),
+                          );
+                          refreshCategories();
+                        },
+                      )
+                    : null,
                 );
               },
             );
@@ -185,18 +196,20 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],  
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => AddEditItemScreen(),
-            ),
-          );
-          refreshCategories();
-        },
-        tooltip: 'Add Item',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: widget.user.status == 'admin'
+        ? FloatingActionButton(
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => AddEditItemScreen(),
+                ),
+              );
+              refreshCategories();
+            },
+            tooltip: 'Add Item',
+            child: const Icon(Icons.add),
+          )
+        : null,
     );
   }
 }
@@ -284,6 +297,7 @@ class FirestoreService {
   Future<void> deleteItem(String id) async {
     await itemsCollection.doc(id).delete();
   }
+
 }
 
 class AddEditItemScreen extends StatefulWidget {
@@ -308,7 +322,6 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
       isEditMode = false;
     } else {
       isEditMode = true;
-      // Set controller values for edit mode
       nameController.text = widget.item!.name;
       quantityController.text = widget.item!.quantity.toString();
       priceController.text = widget.item!.price.toString();
@@ -318,7 +331,6 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   
   @override
   void dispose() {
-    // Clean up controllers
     nameController.dispose();
     quantityController.dispose();
     priceController.dispose();
@@ -395,6 +407,89 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
                 )
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class User {
+  String username;
+  String password;
+  String status;
+
+  User({required this.username, required this.password, required this.status});
+}
+
+class LoginScreen extends StatefulWidget {
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  String errorMessage = '';
+
+  void login() async {
+    String username = usernameController.text;
+    String password = passwordController.text;
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('username', isEqualTo: username)
+        .where('password', isEqualTo: password)
+        .get();
+    if (querySnapshot.docs.isNotEmpty) {
+      // Login successful
+      setState(() {
+        errorMessage = '';
+      });
+      User user = User(
+        username: username,
+        password: password,
+        status: querySnapshot.docs.first['status'],
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MyHomePage(title: 'Flutter Demo Home Page', user: user)),
+      );
+    } else {
+      setState(() {
+        errorMessage = 'Invalid username or password';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Login'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: usernameController,
+              decoration: const InputDecoration(labelText: 'Username'),
+            ),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(labelText: 'Password'),
+              obscureText: true,
+            ),
+            const SizedBox(height: 20),
+            if (errorMessage.isNotEmpty)
+              Text(
+                errorMessage,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ElevatedButton(
+              onPressed: login,
+              child: const Text('Login'),
+            ),
+          ],
         ),
       ),
     );
