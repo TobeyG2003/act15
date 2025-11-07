@@ -1,16 +1,6 @@
 # act15
+The two enhanced features I added were the search + filter functions as well as the login page which connects to a users database in firestore. There is no signup and there are two manually created users, one regular user, the other is an admin.
 
-A new Flutter project.
+To use the app, install the apk on an android device or emulator. On the login screen, there are fields for a username and password. Sample accounts and their info are provided below the fields. Type those into their respective fields and click the login button to be brought to the items dashboard. 
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+As either type of user, you will see the list of items in the database and their fields. This list can be filtered by typing in the search bar or selecting the filter chips. If you are logged in as the admin, you will see buttons next to the itemtiles to edit the items and the floatingactionbutton to add an item at the bottom. If adding an item, you will be brought to the add/edit screen with text fields for each of the item fields besides id and date created, where you can add the valid information and click the add button, or the cancel button to return. If editing, the screen will be the same but with the fields pre-filled with the items' info in addition to a delete button to delete the item.
