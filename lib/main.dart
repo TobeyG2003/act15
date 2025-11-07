@@ -37,13 +37,12 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _searchController = TextEditingController();
 
-  final CollectionReference itemsCollection =
-      FirebaseFirestore.instance.collection('items');
+  Future<List<String>> categories = FirestoreService().getCategories();
+  final List<String> _selectedCategories = [];
 
   @override
   void initState() {
     super.initState();
-    // Add listener to rebuild when search text changes
     _searchController.addListener(() {
       setState(() {});
     });
@@ -53,6 +52,12 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void refreshCategories() {
+    setState(() {
+      categories = FirestoreService().getCategories();
+    });
   }
 
   @override
@@ -75,6 +80,40 @@ class _MyHomePageState extends State<MyHomePage> {
                 },
               ),
             ),
+          ),
+          FutureBuilder<List<String>>(
+            future: categories,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SizedBox.shrink();
+              }
+              final categoryList = snapshot.data!;
+              if (categoryList.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 4.0,
+                  children: categoryList.map((category) {
+                    return FilterChip(
+                      label: Text(category),
+                      selected: _selectedCategories.contains(category),
+                      onSelected: (isSelected) {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedCategories.add(category);
+                          } else {
+                            _selectedCategories.remove(category);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              );
+            },
           ),
           Expanded(
             child: StreamBuilder<List<Item>>(
@@ -116,17 +155,22 @@ class _MyHomePageState extends State<MyHomePage> {
                         .contains(_searchController.text.toLowerCase())) {
                   return const SizedBox.shrink();
                 }
+                if (_selectedCategories.isNotEmpty &&
+                    !_selectedCategories.contains(item.category)) {
+                  return const SizedBox.shrink();
+                }
                 return ListTile(
                   title: Text(item.name),
                   subtitle: Text('Quantity: ${item.quantity}, Price: \$${item.price}, Category: ${item.category}, Created At: ${item.createdAt}'),
                   trailing: IconButton(
                     icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      Navigator.of(context).push(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => AddEditItemScreen(item: item),
                         ),
                       );
+                      refreshCategories();
                     },
                   ),
                 );
@@ -142,12 +186,13 @@ class _MyHomePageState extends State<MyHomePage> {
         ],  
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
+        onPressed: () async {
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => AddEditItemScreen(),
             ),
           );
+          refreshCategories();
         },
         tooltip: 'Add Item',
         child: const Icon(Icons.add),
@@ -218,6 +263,18 @@ class FirestoreService {
         }
       }).toList();
     });
+  }
+
+  Future<List<String>> getCategories() async {
+    QuerySnapshot querySnap = await itemsCollection.get();
+    Set<String> categories = {};
+    for (var doc in querySnap.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      if (data.containsKey('category')) {
+        categories.add(data['category']);
+      }
+    }
+    return categories.toList();
   }
 
   Future<void> updateItem(Item item) async {
