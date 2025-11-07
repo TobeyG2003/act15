@@ -489,6 +489,14 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: login,
               child: const Text('Login'),
             ),
+            const SizedBox(height: 20),
+            Text('sample accounts'),
+            Text(
+              'Admin: username: testadmin, password: admin123'
+            ),
+            Text(
+              'User: username: user, password: pass'
+            ),
           ],
         ),
       ),
