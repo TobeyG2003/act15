@@ -41,6 +41,21 @@ class _MyHomePageState extends State<MyHomePage> {
       FirebaseFirestore.instance.collection('items');
 
   @override
+  void initState() {
+    super.initState();
+    // Add listener to rebuild when search text changes
+    _searchController.addListener(() {
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -95,6 +110,12 @@ class _MyHomePageState extends State<MyHomePage> {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
+                if (_searchController.text.isNotEmpty &&
+                    !item.name
+                        .toLowerCase()
+                        .contains(_searchController.text.toLowerCase())) {
+                  return const SizedBox.shrink();
+                }
                 return ListTile(
                   title: Text(item.name),
                   subtitle: Text('Quantity: ${item.quantity}, Price: \$${item.price}, Category: ${item.category}, Created At: ${item.createdAt}'),
